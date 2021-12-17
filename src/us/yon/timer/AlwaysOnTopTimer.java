@@ -185,9 +185,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 			borderAlertFlashing();
 		}
 		
-		for (int i = 0; i < countdownInput.length; i++) {
-			countdownInput[i] = 0;
-		}
+		if (countdownInput != null)
+			for (int i = 0; i < countdownInput.length; i++) {
+				countdownInput[i] = 0;
+			}
 		
 		currentType = TimerType.NONE;
 		windowTimerPanel.setTime(0, 0, 0, 0, 0, 0);
@@ -363,6 +364,17 @@ public class AlwaysOnTopTimer implements ActionListener {
 			clockfaceButton.setActionCommand("" + c++);
 			intervalTrackerPanel.add(clockfaceButton);
 		}
+		intervalTracker.setSize(intervalTracker.getWidth(), intervalTracker.getHeight() - 55);
+		if (intervalTrackingUIArray.size() == 0) {
+			intervalTrackerButtonPanel.remove(clearIntervals);
+			buttonPanel.remove(start);
+			window.repaint();
+			window.revalidate();
+		}
+		Point intervalTrackerPoint = this.intervalTracker.getLocation();
+		int x = (int) intervalTrackerPoint.getX();
+		int y = (int) intervalTrackerPoint.getY();
+		this.intervalTracker.setLocation(x, y + 55);
 		
 		intervalTrackerColorIndicatorUpdate();
 	}
@@ -383,8 +395,13 @@ public class AlwaysOnTopTimer implements ActionListener {
 		if (clockFaceInterval >= intervalTrackingUIArray.size()) {
 			clockFaceInterval = 0;
 		}
-		int[] time = intervalTrackingUIArray.get(clockFaceInterval).getTime();
-		windowTimerPanel.setTime(time[0], time[1], time[2], time[3], time[4], time[5]);
+		
+		if (intervalTrackingUIArray.size() > 0) {
+			int[] time = intervalTrackingUIArray.get(clockFaceInterval).getTime();
+			windowTimerPanel.setTime(time[0], time[1], time[2], time[3], time[4], time[5]);
+		} else {
+			windowTimerPanel.setTime(0, 0, 0, 0, 0, 0);
+		}
 		intervalTrackerColorIndicatorUpdate();
 	}
 	
@@ -640,5 +657,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 		}
 		window.repaint();
 		window.revalidate();
+		
+		if (intervalTracker != null && intervalTracker.isVisible()) {
+			intervalTracker.repaint();
+			intervalTracker.revalidate();
+		}
 	}
 }
