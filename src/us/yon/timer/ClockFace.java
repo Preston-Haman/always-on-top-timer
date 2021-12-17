@@ -6,6 +6,7 @@ import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.util.Timer;
 import java.util.TimerTask;
 
 import javax.imageio.ImageIO;
@@ -16,7 +17,7 @@ import javax.swing.SwingUtilities;
 import darrylbu.icon.StretchIcon;
 
 
-public class ClockFace extends JPanel {
+public class ClockFace extends JPanel implements ClockFaceTime {
 	
 	/**
 	 * Declared for the sole purpose of preventing the JVM from calculating a value at startup.
@@ -119,7 +120,7 @@ public class ClockFace extends JPanel {
 	
 	boolean ticking = false;
 	
-	java.util.Timer timer;
+	Timer timer;
 	
 	ActionListener listener;
 	
@@ -168,7 +169,13 @@ public class ClockFace extends JPanel {
 		this.stopAtZero = stopAtZero;
 	}
 	
-	void setTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
+	@Override
+	public int[] getTime() {
+		return new int[] {seconds, decaSeconds, minutes, decaMinutes, hours, decaHours};
+	}
+	
+	@Override
+	public void setTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
 		tenthSeconds = 0;
 		this.seconds = seconds;
 		this.decaSeconds = decaSeconds;
@@ -180,7 +187,7 @@ public class ClockFace extends JPanel {
 	}
 	
 	void start() {
-		timer = new java.util.Timer();
+		timer = new Timer();
 		timer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {

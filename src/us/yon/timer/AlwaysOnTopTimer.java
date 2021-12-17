@@ -4,21 +4,23 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 
 import javax.swing.BoxLayout;
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+
+import us.yon.timer.KeypadInputDialog.AbstractKeypadInputListener;
 
 public class AlwaysOnTopTimer implements ActionListener {
 	
@@ -31,23 +33,11 @@ public class AlwaysOnTopTimer implements ActionListener {
 	
 	private TimerType currentType = TimerType.NONE;
 	
-	private int inputCount = 0;
-	private int intervalCount = 0;
-	private int intervalInputCount = 0;
-	private int inputCountBackup = 0;
-	private int[] countdownInput = new int[6];
-	private int[] countdownInputBackup = new int[6];
-	private int[] intervalInput = new int[6];
+	private int[] countdownInput;
 	
-	//[Interval][0 contains input in next bracket, 1 contains input count in next bracket][input or input count]
-	private int[][][] savedIntervals = new int[1][2][6];
-	private int savedIntervalCount = 0;
-	private int currentInterval = -1;
 	private int clockFaceInterval = 0;
-	protected JFrame window = new JFrame("Yon Timer");
+	private JFrame window = new JFrame("Yon Timer");
 	private JFrame intervalTracker;
-	private JDialog setupWindow;
-	private JDialog editWindow;
 	private JDialog prompt;
 	private Timer swingTimer;
 	private JPanel startingWindowPanel = new JPanel();
@@ -55,11 +45,11 @@ public class AlwaysOnTopTimer implements ActionListener {
 	private JPanel buttonPanel = new JPanel();
 	private JPanel intervalTrackerPanel;
 	private JPanel intervalTrackerButtonPanel;
-	protected JPanel northBorder = new JPanel();
+	private JPanel northBorder = new JPanel();
 	private JPanel southBorder = new JPanel();
-	protected JPanel eastBorder = new JPanel();
-	protected JPanel westBorder = new JPanel();
-	private JButton[] intervalTrackingUIArray;
+	private JPanel eastBorder = new JPanel();
+	private JPanel westBorder = new JPanel();
+	private final ArrayList<ClockFaceButton> intervalTrackingUIArray = new ArrayList<>();
 	private boolean flashing = false;
 	private boolean firstIntervalOpen = true;
 	private Color defaultPanelColor;
@@ -76,15 +66,9 @@ public class AlwaysOnTopTimer implements ActionListener {
 	private JButton addInterval = new JButton("Add Interval");
 	private JButton clearIntervals = new JButton("Clear All");
 	private JButton back = new JButton("Back");
-	private JButton cancel;
-	private JButton confirm;
-	private JButton editCancel;
-	private JButton editConfirm;
 	private JButton delete;
 	private JButton skipto;
 	private JButton edit;
-	private JButton[] number;
-	private JButton[] editNumber = new JButton[10];
 	
 	private AlwaysOnTopTimer() {
 		setup.addActionListener(this);
@@ -133,8 +117,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 		window.remove(buttonPanel);
 		window.add(southBorder, BorderLayout.SOUTH);
 		resetEntireSystem();
-		window.repaint();
-		window.revalidate();
 	}
 	
 	private void addClockFaceAndButtons(TimerType type) {
@@ -180,8 +162,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 				throw new IllegalArgumentException("The paramater 'type' must be one of the type constants defined in the AlwaysOnTopTimer Class.");
 		}
 		currentType = type;
-		window.repaint();
-		window.revalidate();
 	}
 	
 	private void resetEntireSystem() {
@@ -207,65 +187,100 @@ public class AlwaysOnTopTimer implements ActionListener {
 		
 		for (int i = 0; i < countdownInput.length; i++) {
 			countdownInput[i] = 0;
-			countdownInputBackup[i] = 0;
 		}
 		
-		inputCount = 0;
-		inputCountBackup = 0;
 		currentType = TimerType.NONE;
 		windowTimerPanel.setTime(0, 0, 0, 0, 0, 0);
 		window.setTitle("Yon Timer");
 	}
 	
-	private void callSetupWindow() {
-		setupWindow = new JDialog(window, "Set Countdown:");
-		setupWindow.setLayout(new BorderLayout());
-		JPanel setupWindowKeypad = new JPanel();
-		cancel = new JButton("Cancel");
-		cancel.addActionListener(this);
-		confirm = new JButton("Confirm");
-		confirm.addActionListener(this);
-		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
-		number = new JButton[10];
-		Icon[] graphics = ClockFace.getClockGraphics();
-		for (int i = 1; i < number.length; i++) {
-			number[i] = new JButton();
-			number[i].setIcon(graphics[i]);
-			number[i].addActionListener(this);
-			number[i].setFocusable(false);
-			setupWindowKeypad.add(number[i]);
-			if (i == number.length - 1) {
-				number[0] = new JButton();
-				number[0].setIcon(graphics[0]);
-				number[0].addActionListener(this);
-				number[0].setFocusable(false);
-				setupWindowKeypad.add(cancel);
-				setupWindowKeypad.add(number[0]);
-				setupWindowKeypad.add(confirm);
+	private void callSetupWindow(final ClockFaceTime clockface, Frame owner, boolean newInterval) {
+		int[] oldTime = clockface.getTime();
+		
+		final int oldSeconds = oldTime[0], oldDecaSeconds = oldTime[1],
+				  oldMinutes = oldTime[2], oldDecaMinutes = oldTime[3],
+				  oldHours = oldTime[4], oldDecaHours = oldTime[5];
+		
+		AbstractKeypadInputListener listener = new AbstractKeypadInputListener() {
+			@Override
+			public void previewInput(int... currentInput) {
+				displayTimeOnClockFace(clockface, currentInput);
 			}
+			
+			@Override
+			public void confirmInput(int... currentInput) {
+				displayTimeOnClockFace(clockface, currentInput);
+				
+				if (currentType == TimerType.COUNTDOWN) {
+					countdownInput = currentInput;
+					buttonPanel.removeAll();
+					buttonPanel.add(back);
+					buttonPanel.add(setup);
+					buttonPanel.add(start);
+					window.repaint();
+					window.revalidate();
+				}
+				
+				if (currentType == TimerType.INTERVAL) {
+					if (!windowTimerPanel.isRunning()) {
+						intervalClockFaceUpdate();
+					}
+					intervalTrackerColorIndicatorUpdate();
+				}
+			}
+			
+			@Override
+			public void cancelInput() {
+				clockface.setTime(oldSeconds, oldDecaSeconds, oldMinutes, oldDecaMinutes, oldHours, oldDecaHours);
+				if (newInterval) {
+					intervalTracker.setSize(intervalTracker.getWidth(), intervalTracker.getHeight() - 55);
+					intervalTrackingUIArray.remove(intervalTrackingUIArray.size() - 1);
+					if (intervalTrackingUIArray.size() == 0) {
+						intervalTrackerButtonPanel.remove(clearIntervals);
+						buttonPanel.remove(start);
+						window.repaint();
+						window.revalidate();
+					}
+					Point intervalTrackerPoint = intervalTracker.getLocation();
+					int x = (int) intervalTrackerPoint.getX();
+					int y = (int) intervalTrackerPoint.getY();
+					intervalTracker.setLocation(x, y + 55);
+					intervalTracker.repaint();
+					intervalTracker.revalidate();
+					intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
+				}
+			}
+		};
+		
+		new KeypadInputDialog(owner, "Set Countdown:", listener);
+	}
+	
+	private static void displayTimeOnClockFace(ClockFaceTime clockface, int...input) {
+		switch (input.length) {
+			case 0:
+				clockface.setTime(0, 0, 0, 0, 0, 0);
+				break;
+			case 1:
+				clockface.setTime(input[0], 0, 0, 0, 0, 0);
+				break;
+			case 2:
+				clockface.setTime(input[1], input[0], 0, 0, 0, 0);
+				break;
+			case 3:
+				clockface.setTime(input[2], input[1], input[0], 0, 0, 0);
+				break;
+			case 4:
+				clockface.setTime(input[3], input[2], input[1], input[0], 0, 0);
+				break;
+			case 5:
+				clockface.setTime(input[4], input[3], input[2], input[1], input[0], 0);
+				break;
+			case 6:
+				clockface.setTime(input[5], input[4], input[3], input[2], input[1], input[0]);
+				break;
+			default:
+				throw new IllegalArgumentException("You cannot input past the end of the clock face.");
 		}
-		setupWindow.add(setupWindowKeypad, BorderLayout.CENTER);
-		setupWindow.add(new JPanel(), BorderLayout.NORTH);
-		setupWindow.add(new JPanel(), BorderLayout.SOUTH);
-		setupWindow.add(new JPanel(), BorderLayout.EAST);
-		setupWindow.add(new JPanel(), BorderLayout.WEST);
-		setupWindow.setSize(275 + 14, 198 + 7);
-		setupWindow.setMaximumSize(setupWindow.getSize());
-		if (currentType == TimerType.COUNTDOWN) {
-			Point windowPoint = window.getLocation();
-			int x = (int) windowPoint.getX();
-			int y = (int) windowPoint.getY();
-			setupWindow.setLocation((int) (x + window.getWidth() - 14), y - (setupWindow.getHeight() - window.getHeight()));
-		} else if (currentType == TimerType.INTERVAL) {
-			Point windowPoint = intervalTracker.getLocation();
-			int x = (int) windowPoint.getX();
-			int y = (int) windowPoint.getY();
-			setupWindow.setLocation((int) (x + intervalTracker.getWidth() - 14), y - (setupWindow.getHeight() - intervalTracker.getHeight()));
-		}
-		setupWindow.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-		setupWindow.setAlwaysOnTop(true);
-		setupWindow.setModal(true);
-		setupWindow.setVisible(true);
 	}
 	
 	private void callIntervalPromptWindow(String command) {
@@ -302,222 +317,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 		prompt.setVisible(true);
 	}
 	
-	private void callEditSetupWindow(String command) {
-		editWindow = new JDialog(window, "Set Countdown:");
-		editWindow.setLayout(new BorderLayout());
-		JPanel setupWindowKeypad = new JPanel();
-		editCancel = new JButton("Cancel");
-		editCancel.setActionCommand(command);
-		editCancel.addActionListener(this);
-		editConfirm = new JButton("Confirm");
-		editConfirm.setActionCommand(command);
-		editConfirm.addActionListener(this);
-		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
-		editNumber = new JButton[10];
-		Icon[] graphics = ClockFace.getClockGraphics();
-		for (int i = 1; i < editNumber.length; i++) {
-			editNumber[i] = new JButton();
-			editNumber[i].setIcon(graphics[i]);
-			editNumber[i].addActionListener(this);
-			editNumber[i].setFocusable(false);
-			editNumber[i].setActionCommand(command);
-			setupWindowKeypad.add(editNumber[i]);
-			if (i == editNumber.length - 1) {
-				editNumber[0] = new JButton();
-				editNumber[0].setIcon(graphics[0]);
-				editNumber[0].addActionListener(this);
-				editNumber[0].setFocusable(false);
-				editNumber[0].setActionCommand(command);
-				setupWindowKeypad.add(editCancel);
-				setupWindowKeypad.add(editNumber[0]);
-				setupWindowKeypad.add(editConfirm);
-			}
-		}
-		editWindow.add(setupWindowKeypad, BorderLayout.CENTER);
-		editWindow.add(new JPanel(), BorderLayout.NORTH);
-		editWindow.add(new JPanel(), BorderLayout.SOUTH);
-		editWindow.add(new JPanel(), BorderLayout.EAST);
-		editWindow.add(new JPanel(), BorderLayout.WEST);
-		editWindow.setSize(275 + 14, 198 + 7);
-		editWindow.setMaximumSize(editWindow.getSize());
-		Point windowPoint = intervalTracker.getLocation();
-		int x = (int) windowPoint.getX();
-		int y = (int) windowPoint.getY();
-		editWindow.setLocation((int) (x + intervalTracker.getWidth() - 14), y - (editWindow.getHeight() - intervalTracker.getHeight()));
-		editWindow.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		editWindow.setAlwaysOnTop(true);
-		editWindow.setModal(true);
-		editWindow.setVisible(true);
-	}
-	
-	private void countdownSetupWindowInput(int input) {
-		if (inputCount < 6) {
-			countdownInput[(countdownInput.length - 1) - inputCount] = input;
-			inputCount++;
-			applyCountdownSetupWindowInput();
-		} else if (inputCount == 6) {
-			return; // not needed to explicitly return, but if this user is too dumb to realize the numbers are filled out, then I wanna slap him <_<
-		}
-	}
-	
-	private void applyCountdownSetupWindowInput() {
-		int seconds, decaSeconds, minutes, decaMinutes, hours, decaHours;
-		if (inputCount == 0) {
-			seconds = 0;
-			decaSeconds = 0;
-			minutes = 0;
-			decaMinutes = 0;
-			hours = 0;
-			decaHours = 0;
-		} else if (inputCount == 1) {
-			seconds = countdownInput[5];
-			decaSeconds = countdownInput[0];
-			minutes = countdownInput[1];
-			decaMinutes = countdownInput[2];
-			hours = countdownInput[3];
-			decaHours = countdownInput[4];
-		} else if (inputCount == 2) {
-			seconds = countdownInput[4];
-			decaSeconds = countdownInput[5];
-			minutes = countdownInput[0];
-			decaMinutes = countdownInput[1];
-			hours = countdownInput[2];
-			decaHours = countdownInput[3];
-		} else if (inputCount == 3) {
-			seconds = countdownInput[3];
-			decaSeconds = countdownInput[4];
-			minutes = countdownInput[5];
-			decaMinutes = countdownInput[0];
-			hours = countdownInput[1];
-			decaHours = countdownInput[2];
-		} else if (inputCount == 4) {
-			seconds = countdownInput[2];
-			decaSeconds = countdownInput[3];
-			minutes = countdownInput[4];
-			decaMinutes = countdownInput[5];
-			hours = countdownInput[0];
-			decaHours = countdownInput[1];
-		} else if (inputCount == 5) {
-			seconds = countdownInput[1];
-			decaSeconds = countdownInput[2];
-			minutes = countdownInput[3];
-			decaMinutes = countdownInput[4];
-			hours = countdownInput[5];
-			decaHours = countdownInput[0];
-		} else if (inputCount == 6) {
-			seconds = countdownInput[0];
-			decaSeconds = countdownInput[1];
-			minutes = countdownInput[2];
-			decaMinutes = countdownInput[3];
-			hours = countdownInput[4];
-			decaHours = countdownInput[5];
-		} else /*if (inputCount >= 7)*/ {
-			throw new IllegalArgumentException("You cannot input past the end of the clock face.");
-		}
-		windowTimerPanel.setTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
-		window.repaint();
-		window.revalidate();
-	}
-	
-	private void intervalSetupWindowInput(int input) {
-		if (intervalInputCount < 6) {
-			intervalInput[(intervalInput.length - 1) - intervalInputCount] = input;
-			intervalInputCount++;
-		} else if (intervalInputCount == 6) {
-			return;
-		}
-	}
-	
-	private void addTimeLabelsForInterval(int interval, int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
-		intervalTrackingUIArray[interval].removeAll();
-		for (JLabel timeLabel: ClockFace.getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours)) {
-			intervalTrackingUIArray[interval].add(timeLabel);
-		}
-	}
-	
-	private void applyIntervalSetupWindowInput(int interval) {
-		int seconds, decaSeconds, minutes, decaMinutes, hours, decaHours;
-		if (intervalInputCount == 1) {
-			decaHours = intervalInput[4];
-			hours = intervalInput[3];
-			decaMinutes = intervalInput[2];
-			minutes = intervalInput[1];
-			decaSeconds = intervalInput[0];
-			seconds = intervalInput[5];
-		} else if (intervalInputCount == 2) {
-			decaHours = intervalInput[3];
-			hours = intervalInput[2];
-			decaMinutes = intervalInput[1];
-			minutes = intervalInput[0];
-			decaSeconds = intervalInput[5];
-			seconds = intervalInput[4];
-		} else if (intervalInputCount == 3) {
-			decaHours = intervalInput[2];
-			hours = intervalInput[1];
-			decaMinutes = intervalInput[0];
-			minutes = intervalInput[5];
-			decaSeconds = intervalInput[4];
-			seconds = intervalInput[3];
-		} else if (intervalInputCount == 4) {
-			decaHours = intervalInput[1];
-			hours = intervalInput[0];
-			decaMinutes = intervalInput[5];
-			minutes = intervalInput[4];
-			decaSeconds = intervalInput[3];
-			seconds = intervalInput[2];
-		} else if (intervalInputCount == 5) {
-			decaHours = intervalInput[0];
-			hours = intervalInput[5];
-			decaMinutes = intervalInput[4];
-			minutes = intervalInput[3];
-			decaSeconds = intervalInput[2];
-			seconds = intervalInput[1];
-		} else if (intervalInputCount == 6) {
-			decaHours = intervalInput[5];
-			hours = intervalInput[4];
-			decaMinutes = intervalInput[3];
-			minutes = intervalInput[2];
-			decaSeconds = intervalInput[1];
-			seconds = intervalInput[0];
-		} else /*if (intervalInputCount >= 7)*/ {
-			throw new IllegalArgumentException("You cannot input past the end of the clock face.");
-		}
-		addTimeLabelsForInterval(interval, seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
-		intervalTracker.repaint();
-		intervalTracker.revalidate();
-	}
-	
-	private void saveIntervalSetupWindowInput(int interval, boolean edit) {
-		if (savedIntervals.length == savedIntervalCount) {
-			int[][][] temp = new int[savedIntervals.length + 1][savedIntervals[0].length][savedIntervals[0][0].length];
-			for (int i = 0; i < savedIntervals.length; i++) {
-				for (int j = 0; j < savedIntervals[0].length; j++) {
-					for (int k = 0; k < savedIntervals[0][0].length; k++) {
-						temp[i][j][k] = new Integer(savedIntervals[i][j][k]);
-					}
-				}
-			}
-			savedIntervals = temp;
-		}
-		if (interval == -1) {
-			for (int i = 0; i < intervalInput.length; i++) {
-				savedIntervals[currentInterval][0][i] = intervalInput[i];
-			}
-			savedIntervals[currentInterval][1][0] = intervalInputCount;
-		} else {
-			for (int i = 0; i < intervalInput.length; i++) {
-				savedIntervals[interval][0][i] = intervalInput[i];
-			}
-			savedIntervals[interval][1][0] = intervalInputCount;
-		}
-		if (!edit) {
-			savedIntervalCount++;
-		}
-		intervalInput = null;
-		intervalInput = new int[6];
-		intervalInputCount = 0;
-	}
-	
 	private void callIntervalTrackerWindow() {
 		if (firstIntervalOpen) {
 			intervalTracker = new JFrame();
@@ -547,129 +346,25 @@ public class AlwaysOnTopTimer implements ActionListener {
 		}
 	}
 	
-	private void buildIntervalTrackingUIArray() {
-		intervalTrackerPanel.removeAll();
-		intervalTrackingUIArray = new JButton[intervalCount];
-		for (int i = 0; i < intervalCount; i++) {
-			intervalTrackingUIArray[i] = new JButton();
-			intervalTrackingUIArray[i].addActionListener(this);
-			intervalTrackingUIArray[i].setFocusable(false);
-			intervalTrackingUIArray[i].setActionCommand("" + i);
-			intervalTrackingUIArray[i].setLayout(new GridLayout(1, 0, 3, 0));
-			addTimeLabelsForInterval(i, 0, 0, 0, 0, 0, 0);
-		}
-		updateIntervalTrackingUI();
-		for (int i = 0; i < intervalTrackingUIArray.length; i++) {
-			intervalTrackerPanel.add(intervalTrackingUIArray[i]);
-		}
-		intervalTracker.repaint();
-		intervalTracker.revalidate();
+	private void addInterval() {
+		ClockFaceButton clockFaceButton = new ClockFaceButton();
+		clockFaceButton.addActionListener(this);
+		clockFaceButton.setActionCommand("" + intervalTrackingUIArray.size());
+		intervalTrackingUIArray.add(clockFaceButton);
+		intervalTrackerPanel.add(clockFaceButton);
 	}
 	
 	private void deleteIntervalArrayIndex(int intervalIndex) {
-		int newLength = savedIntervals.length - 1;
-		if (newLength == 0) {
-			savedIntervals = null;
-			savedIntervals = new int[1][2][6];
-		} else {
-			int[][][] temp = new int[newLength][2][6];
-			int h = 0;
-			for (int i = 0; i < temp.length; i++) {
-				if (i == intervalIndex) {
-					h++;
-				}
-				for (int j = 0; j < 6; j++) {
-					temp[i][0][j] = savedIntervals[h][0][j];
-				}
-				temp[i][1][0] = savedIntervals[h][1][0];
-				h++;
-			}
-			savedIntervals = temp;
+		intervalTrackingUIArray.remove(intervalIndex);
+		
+		int c = 0;
+		intervalTrackerPanel.removeAll();
+		for (ClockFaceButton clockfaceButton: intervalTrackingUIArray) {
+			clockfaceButton.setActionCommand("" + c++);
+			intervalTrackerPanel.add(clockfaceButton);
 		}
-		intervalTracker.setSize(intervalTracker.getWidth(), intervalTracker.getHeight() - 55);
-		savedIntervalCount--;
-		intervalCount--;
-		currentInterval--;
-		if (intervalCount == 0) {
-			intervalTrackerButtonPanel.remove(clearIntervals);
-			buttonPanel.remove(start);
-			window.repaint();
-			window.revalidate();
-		}
-		Point intervalTrackerPoint = intervalTracker.getLocation();
-		int x = (int) intervalTrackerPoint.getX();
-		int y = (int) intervalTrackerPoint.getY();
-		intervalTracker.setLocation(x, y + 55);
-		buildIntervalTrackingUIArray();
+		
 		intervalTrackerColorIndicatorUpdate();
-	}
-	
-	private void updateIntervalTrackingUI() {
-		int interInputCount = 0;
-		int[] input = new int[6];
-		for (int interval = 0; interval < savedIntervalCount; interval++) {
-			interInputCount = savedIntervals[interval][1][0];
-			for (int i = 0; i < input.length; i++) {
-				input[i] = savedIntervals[interval][0][i];
-			}
-			
-			int seconds, decaSeconds, minutes, decaMinutes, hours, decaHours;
-			if (interInputCount == 0) {
-				decaHours = 0;
-				hours = 0;
-				decaMinutes = 0;
-				minutes = 0;
-				decaSeconds = 0;
-				seconds = 0;
-			} else if (interInputCount == 1) {
-				decaHours = input[4];
-				hours = input[3];
-				decaMinutes = input[2];
-				minutes = input[1];
-				decaSeconds = input[0];
-				seconds = input[5];
-			} else if (interInputCount == 2) {
-				decaHours = input[3];
-				hours = input[2];
-				decaMinutes = input[1];
-				minutes = input[0];
-				decaSeconds = input[5];
-				seconds = input[4];
-			} else if (interInputCount == 3) {
-				decaHours = input[2];
-				hours = input[1];
-				decaMinutes = input[0];
-				minutes = input[5];
-				decaSeconds = input[4];
-				seconds = input[3];
-			} else if (interInputCount == 4) {
-				decaHours = input[1];
-				hours = input[0];
-				decaMinutes = input[5];
-				minutes = input[4];
-				decaSeconds = input[3];
-				seconds = input[2];
-			} else if (interInputCount == 5) {
-				decaHours = input[0];
-				hours = input[5];
-				decaMinutes = input[4];
-				minutes = input[3];
-				decaSeconds = input[2];
-				seconds = input[1];
-			} else if (interInputCount == 6) {
-				decaHours = input[5];
-				hours = input[4];
-				decaMinutes = input[3];
-				minutes = input[2];
-				decaSeconds = input[1];
-				seconds = input[0];
-			} else /*if (interInputCount >= 7)*/ {
-				throw new IllegalArgumentException("You cannot input past the end of the clock face.");
-			}
-			addTimeLabelsForInterval(interval, seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
-		}
-		intervalTracker.repaint();
-		intervalTracker.revalidate();
 	}
 	
 	private void borderAlertFlashing() {
@@ -682,83 +377,24 @@ public class AlwaysOnTopTimer implements ActionListener {
 			eastBorder.setBackground(defaultPanelColor);
 			windowTimerPanel.setBackground(defaultPanelColor);
 		}
-		window.repaint();
-		window.revalidate();
 	}
 	
 	private void intervalClockFaceUpdate() {
-		if (clockFaceInterval >= savedIntervalCount) {
+		if (clockFaceInterval >= intervalTrackingUIArray.size()) {
 			clockFaceInterval = 0;
 		}
-		int interInputCount = savedIntervals[clockFaceInterval][1][0];
-		int[] input = new int[6];
-		for (int i = 0; i < input.length; i++) {
-			input[i] = savedIntervals[clockFaceInterval][0][i];
-		}
-		int seconds, decaSeconds, minutes, decaMinutes, hours, decaHours;
-		if (interInputCount == 0) {
-			seconds = 0;
-			decaSeconds = 0;
-			minutes = 0;
-			decaMinutes = 0;
-			hours = 0;
-			decaHours = 0;
-		} else if (interInputCount == 1) {
-			seconds = input[5];
-			decaSeconds = input[0];
-			minutes = input[1];
-			decaMinutes = input[2];
-			hours = input[3];
-			decaHours = input[4];
-		} else if (interInputCount == 2) {
-			seconds = input[4];
-			decaSeconds = input[5];
-			minutes = input[0];
-			decaMinutes = input[1];
-			hours = input[2];
-			decaHours = input[3];
-		} else if (interInputCount == 3) {
-			seconds = input[3];
-			decaSeconds = input[4];
-			minutes = input[5];
-			decaMinutes = input[0];
-			hours = input[1];
-			decaHours = input[2];
-		} else if (interInputCount == 4) {
-			seconds = input[2];
-			decaSeconds = input[3];
-			minutes = input[4];
-			decaMinutes = input[5];
-			hours = input[0];
-			decaHours = input[1];
-		} else if (interInputCount == 5) {
-			seconds = input[1];
-			decaSeconds = input[2];
-			minutes = input[3];
-			decaMinutes = input[4];
-			hours = input[5];
-			decaHours = input[0];
-		} else if (interInputCount == 6) {
-			seconds = input[0];
-			decaSeconds = input[1];
-			minutes = input[2];
-			decaMinutes = input[3];
-			hours = input[4];
-			decaHours = input[5];
-		} else /*if (interInputCount >= 7)*/ {
-			throw new IllegalArgumentException("You cannot input past the end of the clock face.");
-		}
-		windowTimerPanel.setTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
+		int[] time = intervalTrackingUIArray.get(clockFaceInterval).getTime();
+		windowTimerPanel.setTime(time[0], time[1], time[2], time[3], time[4], time[5]);
 		intervalTrackerColorIndicatorUpdate();
 	}
 	
 	private void intervalTrackerColorIndicatorUpdate() {
-		for (int i = 0; i < intervalTrackingUIArray.length; i++) {
-			intervalTrackingUIArray[i].setBackground(new JButton().getBackground());
+		for (int i = 0; i < intervalTrackingUIArray.size(); i++) {
+			intervalTrackingUIArray.get(i).setBackground(defaultPanelColor);
 		}
-		if (clockFaceInterval >= 0 && clockFaceInterval < intervalTrackingUIArray.length) {
-			intervalTrackingUIArray[clockFaceInterval].setBackground(activeIntervalColor);
-			intervalTrackingUIArray[clockFaceInterval].setBorderPainted(true);
+		if (clockFaceInterval >= 0 && clockFaceInterval < intervalTrackingUIArray.size()) {
+			intervalTrackingUIArray.get(clockFaceInterval).setBackground(activeIntervalColor);
+			intervalTrackingUIArray.get(clockFaceInterval).setBorderPainted(true);
 			intervalTracker.repaint();
 			intervalTracker.revalidate();
 		}
@@ -794,24 +430,18 @@ public class AlwaysOnTopTimer implements ActionListener {
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(pause);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == pause) {
 				windowTimerPanel.stop();
 				buttonPanel.removeAll();
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(resume);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == resume) {
 				windowTimerPanel.start();
 				buttonPanel.removeAll();
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(pause);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == reset) {
 				if (windowTimerPanel.isRunning()) {
 					windowTimerPanel.stop();
@@ -842,53 +472,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 					borderAlertFlashing();
 				}
 			} else if (e.getSource() == setup) {
-				if (inputCount != 0) {
-					for (int i = 0; i < countdownInput.length; i++) {
-						countdownInputBackup[i] = new Integer(countdownInput[i]);
-						countdownInput[i] = 0;
-					}
-					inputCountBackup = new Integer(inputCount);
-					inputCount = 0;
-				}
-				applyCountdownSetupWindowInput();
-				callSetupWindow();
-			} else if (e.getSource() == cancel) {
-				for (int i = 0; i < countdownInput.length; i++) {
-					countdownInput[i] = new Integer(countdownInputBackup[i]);
-					countdownInputBackup[i] = 0;
-				}
-				inputCount = new Integer(inputCountBackup);
-				inputCountBackup = 0;
-				applyCountdownSetupWindowInput();
-				setupWindow.dispose();
-			} else if (e.getSource() == confirm) {
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(setup);
-				buttonPanel.add(start);
-				setupWindow.dispose();
-				window.repaint();
-				window.revalidate();
-			} else if (e.getSource() == number[0]) {
-				countdownSetupWindowInput(0);
-			} else if (e.getSource() == number[1]) {
-				countdownSetupWindowInput(1);
-			} else if (e.getSource() == number[2]) {
-				countdownSetupWindowInput(2);
-			} else if (e.getSource() == number[3]) {
-				countdownSetupWindowInput(3);
-			} else if (e.getSource() == number[4]) {
-				countdownSetupWindowInput(4);
-			} else if (e.getSource() == number[5]) {
-				countdownSetupWindowInput(5);
-			} else if (e.getSource() == number[6]) {
-				countdownSetupWindowInput(6);
-			} else if (e.getSource() == number[7]) {
-				countdownSetupWindowInput(7);
-			} else if (e.getSource() == number[8]) {
-				countdownSetupWindowInput(8);
-			} else if (e.getSource() == number[9]) {
-				countdownSetupWindowInput(9);
+				callSetupWindow(windowTimerPanel, window, false);
 			} else if (e.getSource() == start) {
 				windowTimerPanel.start();
 				if (swingTimer.getDelay() != 100) {
@@ -898,8 +482,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(pause);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == reset) {
 				if (windowTimerPanel.isRunning()) {
 					windowTimerPanel.stop();
@@ -915,39 +497,31 @@ public class AlwaysOnTopTimer implements ActionListener {
 				buttonPanel.add(back);
 				buttonPanel.add(setup);
 				buttonPanel.add(start);
-				applyCountdownSetupWindowInput();
+				displayTimeOnClockFace(windowTimerPanel, countdownInput);
 			} else if (e.getSource() == pause) {
 				windowTimerPanel.stop();
 				buttonPanel.removeAll();
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(resume);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == resume) {
 				windowTimerPanel.start();
 				buttonPanel.removeAll();
 				buttonPanel.add(back);
 				buttonPanel.add(reset);
 				buttonPanel.add(pause);
-				window.repaint();
-				window.revalidate();
 			}
 		} else if (currentType == TimerType.INTERVAL) {
 			if (e.getSource() == setup) {
 				callIntervalTrackerWindow();
 			} else if (e.getSource() == addInterval) {
-				intervalCount++;
-				currentInterval++;
+				addInterval();
+				
 				if (!windowTimerPanel.isRunning()) {
 					buttonPanel.add(start);
-					window.repaint();
-					window.revalidate();
-				}
-				buildIntervalTrackingUIArray();
-				if (!windowTimerPanel.isRunning()) {
 					intervalTrackerButtonPanel.add(clearIntervals);
 				}
+				
 				Point windowPoint = intervalTracker.getLocation();
 				intervalTracker.setLocation((int) windowPoint.getX(), (int) windowPoint.getY() - 55);
 				Dimension windowSize = intervalTracker.getSize();
@@ -957,7 +531,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				intervalTracker.repaint();
 				intervalTracker.revalidate();
 				intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
-				callSetupWindow();
+				callSetupWindow(intervalTrackingUIArray.get(intervalTrackingUIArray.size() - 1), intervalTracker, true);
 			} else if (e.getSource() == clearIntervals) {
 				intervalTrackerPanel.removeAll();
 				intervalTrackerButtonPanel.removeAll();
@@ -965,80 +539,14 @@ public class AlwaysOnTopTimer implements ActionListener {
 				intervalTracker.repaint();
 				intervalTracker.revalidate();
 				buttonPanel.remove(start);
-				window.repaint();
-				window.revalidate();
 				intervalTracker.setSize(256, 136 + 7 - 55);
 				Point intervalTrackerPoint = intervalTracker.getLocation();
 				int x = (int) intervalTrackerPoint.getX();
 				int y = (int) intervalTrackerPoint.getY();
-				intervalTracker.setLocation(x, y + (55 * intervalCount));
-				savedIntervals = null;
-				savedIntervals = new int[1][2][6];
-				savedIntervalCount = 0;
-				intervalCount = 0;
-				currentInterval = -1;
+				intervalTracker.setLocation(x, y + (55 * intervalTrackingUIArray.size()));
+				
+				intervalTrackingUIArray.clear();
 				intervalClockFaceUpdate();
-				buildIntervalTrackingUIArray();
-			} else if (e.getSource() == number[0]) {
-				intervalSetupWindowInput(0);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[1]) {
-				intervalSetupWindowInput(1);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[2]) {
-				intervalSetupWindowInput(2);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[3]) {
-				intervalSetupWindowInput(3);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[4]) {
-				intervalSetupWindowInput(4);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[5]) {
-				intervalSetupWindowInput(5);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[6]) {
-				intervalSetupWindowInput(6);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[7]) {
-				intervalSetupWindowInput(7);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[8]) {
-				intervalSetupWindowInput(8);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == number[9]) {
-				intervalSetupWindowInput(9);
-				applyIntervalSetupWindowInput(currentInterval);
-			} else if (e.getSource() == cancel) {
-				intervalTracker.setSize(intervalTracker.getWidth(), intervalTracker.getHeight() - 55);
-				intervalCount--;
-				currentInterval--;
-				if (intervalCount == 0) {
-					intervalTrackerButtonPanel.remove(clearIntervals);
-					buttonPanel.remove(start);
-					window.repaint();
-					window.revalidate();
-				}
-				intervalInput = null;
-				intervalInput = new int[6];
-				intervalInputCount = 0;
-				buildIntervalTrackingUIArray();
-				Point intervalTrackerPoint = intervalTracker.getLocation();
-				int x = (int) intervalTrackerPoint.getX();
-				int y = (int) intervalTrackerPoint.getY();
-				intervalTracker.setLocation(x, y + 55);
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
-				intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
-				setupWindow.dispose();
-			} else if (e.getSource() == confirm) {
-				saveIntervalSetupWindowInput(-1, false);
-				updateIntervalTrackingUI();
-				if (!windowTimerPanel.isRunning()) {
-					intervalClockFaceUpdate();
-				}
-				intervalTrackerColorIndicatorUpdate();
-				setupWindow.dispose();
 			} else if (e.getSource() == start) {
 				buttonPanel.remove(start);
 				buttonPanel.remove(back);
@@ -1057,21 +565,17 @@ public class AlwaysOnTopTimer implements ActionListener {
 				windowTimerPanel.stop();
 				buttonPanel.remove(pause);
 				buttonPanel.add(resume);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == resume) {
 				windowTimerPanel.start();
 				buttonPanel.remove(resume);
 				buttonPanel.add(pause);
-				window.repaint();
-				window.revalidate();
 			} else if (e.getSource() == reset) {
 				windowTimerPanel.stop();
 				buttonPanel.removeAll();
 				buttonPanel.add(back);
 				buttonPanel.add(setup);
 				buttonPanel.add(start);
-				if (savedIntervalCount > 0) {
+				if (intervalTrackingUIArray.size() > 0) {
 					intervalTrackerButtonPanel.add(clearIntervals);
 				}
 				intervalTracker.repaint();
@@ -1105,7 +609,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				}
 			} else if (e.getSource() == edit) {
 				prompt.dispose();
-				callEditSetupWindow(edit.getActionCommand());
+				callSetupWindow(intervalTrackingUIArray.get(Integer.parseInt(edit.getActionCommand())), intervalTracker, false);
 				intervalTracker.repaint();
 				intervalTracker.revalidate();
 			} else if (e.getSource() == skipto) {
@@ -1117,60 +621,16 @@ public class AlwaysOnTopTimer implements ActionListener {
 				prompt.dispose();
 				int intervalIndex = Integer.parseInt(delete.getActionCommand());
 				deleteIntervalArrayIndex(intervalIndex);
-				if (savedIntervalCount == 0) {
+				if (intervalTrackingUIArray.size() == 0) {
 					intervalClockFaceUpdate();
 					buttonPanel.removeAll();
 					buttonPanel.add(back);
 					buttonPanel.add(setup);
-					window.repaint();
-					window.revalidate();
 				}
-			} else if (e.getSource() == editNumber[0]) {
-				intervalSetupWindowInput(0);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[0].getActionCommand()));
-			} else if (e.getSource() == editNumber[1]) {
-				intervalSetupWindowInput(1);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[1].getActionCommand()));
-			} else if (e.getSource() == editNumber[2]) {
-				intervalSetupWindowInput(2);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[2].getActionCommand()));
-			} else if (e.getSource() == editNumber[3]) {
-				intervalSetupWindowInput(3);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[3].getActionCommand()));
-			} else if (e.getSource() == editNumber[4]) {
-				intervalSetupWindowInput(4);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[4].getActionCommand()));
-			} else if (e.getSource() == editNumber[5]) {
-				intervalSetupWindowInput(5);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[5].getActionCommand()));
-			} else if (e.getSource() == editNumber[6]) {
-				intervalSetupWindowInput(6);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[6].getActionCommand()));
-			} else if (e.getSource() == editNumber[7]) {
-				intervalSetupWindowInput(7);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[7].getActionCommand()));
-			} else if (e.getSource() == editNumber[8]) {
-				intervalSetupWindowInput(8);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[8].getActionCommand()));
-			} else if (e.getSource() == editNumber[9]) {
-				intervalSetupWindowInput(9);
-				applyIntervalSetupWindowInput(Integer.parseInt(editNumber[9].getActionCommand()));
-			} else if (e.getSource() == editCancel) {
-				intervalInput = null;
-				intervalInput = new int[6];
-				intervalInputCount = 0;
-				updateIntervalTrackingUI();
-				editWindow.dispose();
-			} else if (e.getSource() == editConfirm) {
-				saveIntervalSetupWindowInput(Integer.parseInt(editConfirm.getActionCommand()), true);
-				buildIntervalTrackingUIArray();
-				intervalClockFaceUpdate();
-				intervalTrackerColorIndicatorUpdate();
-				editWindow.dispose();
 			} else {
-				for (int i = 0; i < intervalTrackingUIArray.length; i++) {
-					if (e.getSource() == intervalTrackingUIArray[i]) {
-						String command = intervalTrackingUIArray[i].getActionCommand();
+				for (int i = 0; i < intervalTrackingUIArray.size(); i++) {
+					if (e.getSource() == intervalTrackingUIArray.get(i)) {
+						String command = intervalTrackingUIArray.get(i).getActionCommand();
 						if (clockFaceInterval != Integer.parseInt(command) || !windowTimerPanel.isRunning()) {
 							callIntervalPromptWindow(command);
 						}
@@ -1178,5 +638,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				}
 			}
 		}
+		window.repaint();
+		window.revalidate();
 	}
 }
