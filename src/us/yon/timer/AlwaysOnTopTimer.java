@@ -4,46 +4,23 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.util.TimerTask;
 
-import javax.imageio.ImageIO;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
-import darrylbu.icon.StretchIcon;
-
 public class AlwaysOnTopTimer implements ActionListener {
-	
-	private static final StretchIcon[] GRAPHICS;
-	
-	static {
-		//Ten digits, and a colon
-		GRAPHICS = new StretchIcon[11];
-		
-		try {
-			for (int i = 0; i < GRAPHICS.length - 1; i++) {
-				GRAPHICS[i] = new StretchIcon(ImageIO.read(AlwaysOnTopTimer.class.getResource("graphics/Clock_Number_" + i + ".png")));
-			}
-			
-			GRAPHICS[GRAPHICS.length - 1] = new StretchIcon(ImageIO.read(AlwaysOnTopTimer.class.getResource("graphics/Clock_Colon.png")));
-		} catch (IOException e) {
-			//TODO: Decide how to handle this. The graphics are important, so maybe just close the application?
-		}
-	}
 	
 	private enum TimerType {
 		NONE,
@@ -53,267 +30,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 	}
 	
 	private TimerType currentType = TimerType.NONE;
-	
-	class ClockFace extends JPanel {
-		
-		/**
-		 * Declared for the sole purpose of preventing the JVM from calculating a value at startup.
-		 */
-		private static final long serialVersionUID = 1L;
-		
-		/**
-		 * A unit of time that is displayable on this clock.
-		 */
-		private int tenthSeconds, seconds, decaSeconds, minutes, decaMinutes, hours, decaHours;
-		
-		/**
-		 * A {@link JPanel} that visually represents the value of {@link #tenthSeconds} to the user.
-		 */
-		private JPanel tenthsIndicator = new JPanel() {
-			/**
-			 * Declared for the sole purpose of preventing the JVM from calculating a value at startup.
-			 */
-			private static final long serialVersionUID = 1L;
-			
-			@Override
-			protected void paintComponent(Graphics g) {
-				super.paintComponent(g);
-				if (tenthSeconds == 0) return;
-				
-				int x, y = 1;
-				int barWidth = (getWidth() - westBorder.getWidth() - eastBorder.getWidth() - 6);
-				int modNine = barWidth % 9;
-				int width, height = northBorder.getHeight() - 1;
-				
-				if (countdown) {
-					int correction = modNine - tenthSeconds;
-					if (correction < 0) correction = 0;
-					x = (westBorder.getWidth() + 3) + ((barWidth/9) * (9 - tenthSeconds)) + correction;
-					width = (getWidth() - eastBorder.getWidth() - 3 - x);
-				} else {
-					int correction = modNine;
-					if (correction > tenthSeconds) correction = tenthSeconds;
-					x = westBorder.getWidth() + 3;
-					width = (barWidth / 9) * tenthSeconds + correction;
-				}
-				
-				g.setColor(new Color(112, 146, 190));
-				g.fillRect(x, y, width, height);
-			}
-		};
-		
-		/**
-		 * Dictates whether this clock face ticks up or down.
-		 * <p>
-		 * When true, this clock face will tick down.
-		 */
-		boolean countdown;
-		
-		boolean stopAtZero;
-		
-		boolean ticking = false;
-		
-		java.util.Timer timer;
-		
-		ActionListener listener;
-		
-		JLabel[] clockDisplay = new JLabel[8];
-		
-		ClockFace(boolean stopTickingAtZero) {
-			setLayout(new GridLayout(1, 0, 3, 0));
-			stopAtZero = stopTickingAtZero;
-			
-			for (int i = 0; i < clockDisplay.length; i++) {
-				clockDisplay[i] = new JLabel();
-				
-				if (i == 2 || i == 5)
-					//Set colons
-					clockDisplay[i].setIcon(GRAPHICS[10]);
-				else
-					//Set zero digit
-					clockDisplay[i].setIcon(GRAPHICS[0]);
-				
-				add(clockDisplay[i]);
-			}
-		}
-		
-		ClockFace(ActionListener listener, boolean stopTickingAtZero) {
-			this(stopTickingAtZero);
-			this.listener = listener;
-		}
-		
-		/**
-		 * Returns {@link #tenthsIndicator}, so it may be added to the UI separately.
-		 *  
-		 * @return {@link #tenthsIndicator}.
-		 */
-		JPanel getTenthsIndicator() {
-			return tenthsIndicator;
-		}
-		
-		/**
-		 * Sets {@link #countdown} to the given value.
-		 */
-		void setCountdown(boolean countdown) {
-			this.countdown = countdown;
-		}
-		
-		void setTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
-			tenthSeconds = 0;
-			this.seconds = seconds;
-			this.decaSeconds = decaSeconds;
-			this.minutes = minutes;
-			this.decaMinutes = decaMinutes;
-			this.hours = hours;
-			this.decaHours = decaHours;
-			updateClockFace();
-		}
-		
-		void start() {
-			timer = new java.util.Timer();
-			timer.scheduleAtFixedRate(new TimerTask() {
-				@Override
-				public void run() {
-					SwingUtilities.invokeLater(() -> {
-						tick();
-						updateClockFace();
-						fireActionEventIfCountdownReachedZero();
-					});
-				}
-			}, 0, 100);
-			ticking = true;
-		}
-		
-		void stop() {
-			if (ticking) {
-				timer.cancel();
-				ticking = false;
-			}
-		}
-		
-		boolean isRunning() {
-			return ticking;
-		}
-		
-		void tick() {
-			if (countdown) {
-				if (tenthSeconds > 0) {
-					tenthSeconds--;
-					return;
-				}
-				if (tenthSeconds == 0 && (seconds > 0 || decaSeconds > 0 || minutes > 0 || decaMinutes > 0 || hours > 0 || decaHours > 0)) {
-					tenthSeconds = 9;
-					if (seconds > 0) {
-						seconds--;
-						return;
-					}
-					if (seconds == 0 && (decaSeconds > 0 || minutes > 0 || decaMinutes > 0 || hours > 0 || decaHours > 0)) {
-						seconds = 9;
-						if (decaSeconds > 0) {
-							decaSeconds--;
-							return;
-						}
-						if (decaSeconds == 0 && (minutes > 0 || decaMinutes > 0 || hours > 0 || decaHours > 0)) {
-							decaSeconds = 5;
-							if (minutes > 0) {
-								minutes--;
-								return;
-							}
-							if (minutes == 0 && (decaMinutes > 0 || hours > 0 || decaHours > 0)) {
-								minutes = 9;
-								if (decaMinutes > 0) {
-									decaMinutes--;
-									return;
-								}
-								if (decaMinutes == 0 && (hours > 0 || decaHours > 0)) {
-									decaMinutes = 5;
-									if (hours > 0) {
-										hours--;
-										return;
-									}
-									if (hours == 0 && decaHours > 0) {
-										hours = 9;
-										if (decaHours > 0) {
-											decaHours--;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			} else {
-				tenthSeconds++;
-				if (tenthSeconds == 10) {
-					tenthSeconds = 0;
-					seconds++;
-					if (seconds == 10) {
-						seconds = 0;
-						decaSeconds++;
-						if (decaSeconds == 6) {
-							decaSeconds = 0;
-							minutes++;
-							if (minutes == 10) {
-								minutes = 0;
-								decaMinutes++;
-								if (decaMinutes == 6) {
-									decaMinutes = 0;
-									hours++;
-									if (hours == 10) {
-										hours = 0;
-										decaHours++;
-										if (decaHours == 10) {
-											decaHours = 0;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		private void updateClockFace() {
-			for (int i = 0; i < clockDisplay.length; i++) {
-				switch (i) {
-					case 2:
-					case 5:
-						//Colon slots. Do nothing.
-						break;
-					case 0: //decaHours
-						clockDisplay[i].setIcon(GRAPHICS[decaHours]);
-						break;
-					case 1: //hours
-						clockDisplay[i].setIcon(GRAPHICS[hours]);
-						break;
-					case 3: //decaMinutes
-						clockDisplay[i].setIcon(GRAPHICS[decaMinutes]);
-						break;
-					case 4: //minutes
-						clockDisplay[i].setIcon(GRAPHICS[minutes]);
-						break;
-					case 6: //decaSeconds
-						clockDisplay[i].setIcon(GRAPHICS[decaSeconds]);
-						break;
-					case 7: //seconds
-						clockDisplay[i].setIcon(GRAPHICS[seconds]);
-						break;
-				}
-			}
-			window.repaint();
-			window.revalidate();
-		}
-		
-		private void fireActionEventIfCountdownReachedZero() {
-			if (!countdown) return;
-			if (tenthSeconds == 0 & seconds == 0 & decaSeconds == 0 & minutes == 0 & decaMinutes == 0 & hours == 0 & decaHours == 0) {
-				if (stopAtZero) stop();
-				final ClockFace source = this;
-				listener.actionPerformed(new ActionEvent(source, ActionEvent.ACTION_PERFORMED, null));
-			}
-		}
-	}
 	
 	private int inputCount = 0;
 	private int intervalCount = 0;
@@ -335,7 +51,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 	private JDialog prompt;
 	private Timer swingTimer;
 	private JPanel startingWindowPanel = new JPanel();
-	private ClockFace windowTimerPanel;
+	private ClockFace windowTimerPanel = new ClockFace(this);
 	private JPanel buttonPanel = new JPanel();
 	private JPanel intervalTrackerPanel;
 	private JPanel intervalTrackerButtonPanel;
@@ -417,13 +133,15 @@ public class AlwaysOnTopTimer implements ActionListener {
 		this.window.remove(this.buttonPanel);
 		this.window.add(this.southBorder, BorderLayout.SOUTH);
 		this.resetEntireSystem();
+		this.window.repaint();
+		this.window.revalidate();
 	}
 	
 	private void addClockFaceAndButtons(TimerType type) {
 		switch (type) {
 			case STOPWATCH:
-				windowTimerPanel = new ClockFace(this, true);
 				windowTimerPanel.setCountdown(false);
+				windowTimerPanel.setStopAtZero(true);
 				
 				this.window.remove(this.startingWindowPanel);
 				this.window.setTitle("Yon Timer -- Stopwatch");
@@ -441,10 +159,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 			case INTERVAL:
 				if (type == TimerType.COUNTDOWN) {
 					this.window.setTitle("Yon Timer -- Countdown");
-					windowTimerPanel = new ClockFace(this, true);
+					windowTimerPanel.setStopAtZero(true);
 				} else if (type == TimerType.INTERVAL) {
 					this.window.setTitle("Yon Timer -- Interval");
-					windowTimerPanel = new ClockFace(this, false);
+					windowTimerPanel.setStopAtZero(false);
 				}
 				windowTimerPanel.setCountdown(true);
 				
@@ -509,15 +227,16 @@ public class AlwaysOnTopTimer implements ActionListener {
 		this.confirm.addActionListener(this);
 		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
 		this.number = new JButton[10];
+		Icon[] graphics = ClockFace.getClockGraphics();
 		for (int i = 1; i < this.number.length; i++) {
 			this.number[i] = new JButton();
-			this.number[i].setIcon(GRAPHICS[i]);
+			this.number[i].setIcon(graphics[i]);
 			this.number[i].addActionListener(this);
 			this.number[i].setFocusable(false);
 			setupWindowKeypad.add(number[i]);
 			if (i == this.number.length - 1) {
 				this.number[0] = new JButton();
-				this.number[0].setIcon(GRAPHICS[0]);
+				this.number[0].setIcon(graphics[0]);
 				this.number[0].addActionListener(this);
 				this.number[0].setFocusable(false);
 				setupWindowKeypad.add(this.cancel);
@@ -595,16 +314,17 @@ public class AlwaysOnTopTimer implements ActionListener {
 		this.editConfirm.addActionListener(this);
 		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
 		this.editNumber = new JButton[10];
+		Icon[] graphics = ClockFace.getClockGraphics();
 		for (int i = 1; i < this.editNumber.length; i++) {
 			this.editNumber[i] = new JButton();
-			this.editNumber[i].setIcon(GRAPHICS[i]);
+			this.editNumber[i].setIcon(graphics[i]);
 			this.editNumber[i].addActionListener(this);
 			this.editNumber[i].setFocusable(false);
 			this.editNumber[i].setActionCommand(command);
 			setupWindowKeypad.add(this.editNumber[i]);
 			if (i == this.editNumber.length - 1) {
 				this.editNumber[0] = new JButton();
-				this.editNumber[0].setIcon(GRAPHICS[0]);
+				this.editNumber[0].setIcon(graphics[0]);
 				this.editNumber[0].addActionListener(this);
 				this.editNumber[0].setFocusable(false);
 				this.editNumber[0].setActionCommand(command);
@@ -695,6 +415,8 @@ public class AlwaysOnTopTimer implements ActionListener {
 			throw new IllegalArgumentException("You cannot input past the end of the clock face.");
 		}
 		windowTimerPanel.setTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
+		window.repaint();
+		window.revalidate();
 	}
 	
 	private void intervalSetupWindowInput(int input) {
@@ -706,25 +428,9 @@ public class AlwaysOnTopTimer implements ActionListener {
 		}
 	}
 	
-	private static JLabel[] getLabelsForTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
-		JLabel[] clockDisplay = new JLabel[8];
-		for (int i = 0; i < clockDisplay.length; i++) {
-			clockDisplay[i] = new JLabel();
-		}
-		clockDisplay[0].setIcon(GRAPHICS[decaHours]);
-		clockDisplay[1].setIcon(GRAPHICS[hours]);
-		clockDisplay[2].setIcon(GRAPHICS[10]);
-		clockDisplay[3].setIcon(GRAPHICS[decaMinutes]);
-		clockDisplay[4].setIcon(GRAPHICS[minutes]);
-		clockDisplay[5].setIcon(GRAPHICS[10]);
-		clockDisplay[6].setIcon(GRAPHICS[decaSeconds]);
-		clockDisplay[7].setIcon(GRAPHICS[seconds]);
-		return clockDisplay;
-	}
-	
-	private void addTimeLabelsForInterval(int interval, JLabel[] labels) {
+	private void addTimeLabelsForInterval(int interval, int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
 		this.intervalTrackingUIArray[interval].removeAll();
-		for (JLabel timeLabel: labels) {
+		for (JLabel timeLabel: ClockFace.getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours)) {
 			this.intervalTrackingUIArray[interval].add(timeLabel);
 		}
 	}
@@ -776,7 +482,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 		} else /*if (this.intervalInputCount >= 7)*/ {
 			throw new IllegalArgumentException("You cannot input past the end of the clock face.");
 		}
-		addTimeLabelsForInterval(interval, getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours));
+		addTimeLabelsForInterval(interval, seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
 		this.intervalTracker.repaint();
 		this.intervalTracker.revalidate();
 	}
@@ -850,7 +556,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 			this.intervalTrackingUIArray[i].setFocusable(false);
 			this.intervalTrackingUIArray[i].setActionCommand("" + i);
 			this.intervalTrackingUIArray[i].setLayout(new GridLayout(1, 0, 3, 0));
-			addTimeLabelsForInterval(i, getLabelsForTime(0, 0, 0, 0, 0, 0));
+			addTimeLabelsForInterval(i, 0, 0, 0, 0, 0, 0);
 		}
 		this.updateIntervalTrackingUI();
 		for (int i = 0; i < this.intervalTrackingUIArray.length; i++) {
@@ -960,7 +666,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 			} else /*if (interInputCount >= 7)*/ {
 				throw new IllegalArgumentException("You cannot input past the end of the clock face.");
 			}
-			addTimeLabelsForInterval(interval, getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours));
+			addTimeLabelsForInterval(interval, seconds, decaSeconds, minutes, decaMinutes, hours, decaHours);
 		}
 		this.intervalTracker.repaint();
 		this.intervalTracker.revalidate();
