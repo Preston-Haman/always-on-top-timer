@@ -546,7 +546,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				int windowHeight = windowSize.height;
 				int windowWidth = windowSize.width;
 				intervalTracker.setSize(windowWidth, windowHeight + 55);
-				intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
+				intervalTrackerColorIndicatorUpdate();
 				callSetupWindow(intervalTrackingUIArray.get(intervalTrackingUIArray.size() - 1), intervalTracker, true);
 			} else if (e.getSource() == clearIntervals) {
 				intervalTrackerPanel.removeAll();
