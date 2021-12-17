@@ -225,8 +225,11 @@ public class AlwaysOnTopTimer implements ActionListener {
 				if (currentType == TimerType.INTERVAL) {
 					if (!windowTimerPanel.isRunning()) {
 						intervalClockFaceUpdate();
-					}
-					intervalTrackerColorIndicatorUpdate();
+					} else
+						intervalTrackerColorIndicatorUpdate();
+					
+					intervalTracker.repaint();
+					intervalTracker.revalidate();
 				}
 			}
 			
@@ -246,9 +249,9 @@ public class AlwaysOnTopTimer implements ActionListener {
 					int x = (int) intervalTrackerPoint.getX();
 					int y = (int) intervalTrackerPoint.getY();
 					intervalTracker.setLocation(x, y + 55);
+					intervalTrackerColorIndicatorUpdate();
 					intervalTracker.repaint();
 					intervalTracker.revalidate();
-					intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
 				}
 			}
 		};
@@ -412,8 +415,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 		if (clockFaceInterval >= 0 && clockFaceInterval < intervalTrackingUIArray.size()) {
 			intervalTrackingUIArray.get(clockFaceInterval).setBackground(activeIntervalColor);
 			intervalTrackingUIArray.get(clockFaceInterval).setBorderPainted(true);
-			intervalTracker.repaint();
-			intervalTracker.revalidate();
 		}
 	}
 	
@@ -545,16 +546,12 @@ public class AlwaysOnTopTimer implements ActionListener {
 				int windowHeight = windowSize.height;
 				int windowWidth = windowSize.width;
 				intervalTracker.setSize(windowWidth, windowHeight + 55);
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
 				intervalTrackerColorIndicatorUpdate(); // also calls repaint/revalidate
 				callSetupWindow(intervalTrackingUIArray.get(intervalTrackingUIArray.size() - 1), intervalTracker, true);
 			} else if (e.getSource() == clearIntervals) {
 				intervalTrackerPanel.removeAll();
 				intervalTrackerButtonPanel.removeAll();
 				intervalTrackerButtonPanel.add(addInterval);
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
 				buttonPanel.remove(start);
 				intervalTracker.setSize(256, 136 + 7 - 55);
 				Point intervalTrackerPoint = intervalTracker.getLocation();
@@ -570,10 +567,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				buttonPanel.add(reset);
 				buttonPanel.add(pause);
 				intervalTrackerButtonPanel.remove(clearIntervals);
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
 				intervalClockFaceUpdate();
-				intervalTrackerColorIndicatorUpdate();
 				windowTimerPanel.start();
 				if (swingTimer.getDelay() != 100) {
 					swingTimer.setDelay(100);
@@ -595,11 +589,8 @@ public class AlwaysOnTopTimer implements ActionListener {
 				if (intervalTrackingUIArray.size() > 0) {
 					intervalTrackerButtonPanel.add(clearIntervals);
 				}
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
 				clockFaceInterval = 0;
 				intervalClockFaceUpdate();
-				intervalTrackerColorIndicatorUpdate();
 			} else if (e.getSource() == windowTimerPanel || e.getSource() == swingTimer) {
 				if (e.getSource() == windowTimerPanel) {
 					swingTimer.start();
@@ -627,13 +618,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 			} else if (e.getSource() == edit) {
 				prompt.dispose();
 				callSetupWindow(intervalTrackingUIArray.get(Integer.parseInt(edit.getActionCommand())), intervalTracker, false);
-				intervalTracker.repaint();
-				intervalTracker.revalidate();
 			} else if (e.getSource() == skipto) {
 				prompt.dispose();
 				clockFaceInterval = Integer.parseInt(skipto.getActionCommand());
 				intervalClockFaceUpdate();
-				intervalTrackerColorIndicatorUpdate();
 			} else if (e.getSource() == delete) {
 				prompt.dispose();
 				int intervalIndex = Integer.parseInt(delete.getActionCommand());
