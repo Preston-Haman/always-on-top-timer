@@ -5,16 +5,15 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import javax.imageio.ImageIO;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-import darrylbu.icon.StretchIcon;
+import us.yon.timer.graphics.ClockFaceGraphics;
 
 
 public class ClockFacePanel extends JPanel implements ClockFace {
@@ -24,40 +23,21 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	private static final StretchIcon[] GRAPHICS;
-	
-	static {
-		//Ten digits, and a colon
-		GRAPHICS = new StretchIcon[11];
-		
-		try {
-			for (int i = 0; i < GRAPHICS.length - 1; i++) {
-				GRAPHICS[i] = new StretchIcon(ImageIO.read(AlwaysOnTopTimer.class.getResource("graphics/Clock_Number_" + i + ".png")));
-			}
-			
-			GRAPHICS[GRAPHICS.length - 1] = new StretchIcon(ImageIO.read(AlwaysOnTopTimer.class.getResource("graphics/Clock_Colon.png")));
-		} catch (IOException e) {
-			//TODO: Decide how to handle this. The graphics are important, so maybe just close the application?
-		}
-	}
-	
-	public static StretchIcon[] getClockGraphics() {
-		return GRAPHICS;
-	}
-	
 	public static JLabel[] getLabelsForTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
 		JLabel[] clockDisplay = new JLabel[8];
 		for (int i = 0; i < clockDisplay.length; i++) {
 			clockDisplay[i] = new JLabel();
 		}
-		clockDisplay[0].setIcon(GRAPHICS[decaHours]);
-		clockDisplay[1].setIcon(GRAPHICS[hours]);
-		clockDisplay[2].setIcon(GRAPHICS[10]);
-		clockDisplay[3].setIcon(GRAPHICS[decaMinutes]);
-		clockDisplay[4].setIcon(GRAPHICS[minutes]);
-		clockDisplay[5].setIcon(GRAPHICS[10]);
-		clockDisplay[6].setIcon(GRAPHICS[decaSeconds]);
-		clockDisplay[7].setIcon(GRAPHICS[seconds]);
+		
+		Icon[] graphics = ClockFaceGraphics.getClockGraphics();
+		clockDisplay[0].setIcon(graphics[decaHours]);
+		clockDisplay[1].setIcon(graphics[hours]);
+		clockDisplay[2].setIcon(graphics[10]);
+		clockDisplay[3].setIcon(graphics[decaMinutes]);
+		clockDisplay[4].setIcon(graphics[minutes]);
+		clockDisplay[5].setIcon(graphics[10]);
+		clockDisplay[6].setIcon(graphics[decaSeconds]);
+		clockDisplay[7].setIcon(graphics[seconds]);
 		return clockDisplay;
 	}
 	
@@ -130,15 +110,16 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 		setLayout(new GridLayout(1, 0, 3, 0));
 		stopAtZero = true;
 		
+		Icon[] graphics = ClockFaceGraphics.getClockGraphics();
 		for (int i = 0; i < clockDisplay.length; i++) {
 			clockDisplay[i] = new JLabel();
 			
 			if (i == 2 || i == 5)
 				//Set colons
-				clockDisplay[i].setIcon(GRAPHICS[10]);
+				clockDisplay[i].setIcon(graphics[10]);
 			else
 				//Set zero digit
-				clockDisplay[i].setIcon(GRAPHICS[0]);
+				clockDisplay[i].setIcon(graphics[0]);
 			
 			add(clockDisplay[i]);
 		}
@@ -176,14 +157,27 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 	
 	@Override
 	public void setTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
-		tenthSeconds = 0;
-		this.seconds = seconds;
-		this.decaSeconds = decaSeconds;
-		this.minutes = minutes;
-		this.decaMinutes = decaMinutes;
-		this.hours = hours;
-		this.decaHours = decaHours;
-		updateClockFace();
+		if (ticking) {
+			stop();
+			tenthSeconds = 0;
+			this.seconds = seconds;
+			this.decaSeconds = decaSeconds;
+			this.minutes = minutes;
+			this.decaMinutes = decaMinutes;
+			this.hours = hours;
+			this.decaHours = decaHours;
+			updateClockFace();
+			start();
+		} else {
+			tenthSeconds = 0;
+			this.seconds = seconds;
+			this.decaSeconds = decaSeconds;
+			this.minutes = minutes;
+			this.decaMinutes = decaMinutes;
+			this.hours = hours;
+			this.decaHours = decaHours;
+			updateClockFace();
+		}
 	}
 	
 	void start() {
@@ -197,7 +191,7 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 					fireActionEventIfCountdownReachedZero();
 				});
 			}
-		}, 0, 100);
+		}, 100, 100);
 		ticking = true;
 	}
 	
@@ -292,6 +286,8 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 	}
 	
 	private void updateClockFace() {
+		Icon[] graphics = ClockFaceGraphics.getClockGraphics();
+		
 		for (int i = 0; i < clockDisplay.length; i++) {
 			switch (i) {
 				case 2:
@@ -299,22 +295,22 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 					//Colon slots. Do nothing.
 					break;
 				case 0: //decaHours
-					clockDisplay[i].setIcon(GRAPHICS[decaHours]);
+					clockDisplay[i].setIcon(graphics[decaHours]);
 					break;
 				case 1: //hours
-					clockDisplay[i].setIcon(GRAPHICS[hours]);
+					clockDisplay[i].setIcon(graphics[hours]);
 					break;
 				case 3: //decaMinutes
-					clockDisplay[i].setIcon(GRAPHICS[decaMinutes]);
+					clockDisplay[i].setIcon(graphics[decaMinutes]);
 					break;
 				case 4: //minutes
-					clockDisplay[i].setIcon(GRAPHICS[minutes]);
+					clockDisplay[i].setIcon(graphics[minutes]);
 					break;
 				case 6: //decaSeconds
-					clockDisplay[i].setIcon(GRAPHICS[decaSeconds]);
+					clockDisplay[i].setIcon(graphics[decaSeconds]);
 					break;
 				case 7: //seconds
-					clockDisplay[i].setIcon(GRAPHICS[seconds]);
+					clockDisplay[i].setIcon(graphics[seconds]);
 					break;
 			}
 		}

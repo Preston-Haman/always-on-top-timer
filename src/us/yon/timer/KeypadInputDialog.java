@@ -16,6 +16,8 @@ import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JPanel;
 
+import us.yon.timer.graphics.ClockFaceGraphics;
+
 
 public class KeypadInputDialog extends JDialog implements ActionListener {
 	
@@ -24,7 +26,7 @@ public class KeypadInputDialog extends JDialog implements ActionListener {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	public static abstract class AbstractKeypadInputListener implements ActionListener {
+	public static abstract class KeypadInputListener implements ActionListener {
 		
 		public abstract void cancelInput();
 		
@@ -62,11 +64,11 @@ public class KeypadInputDialog extends JDialog implements ActionListener {
 	
 	private JButton[] numbers = new JButton[10];
 	
-	private AbstractKeypadInputListener listener;
+	private KeypadInputListener listener;
 	
 	private ArrayList<Integer> input = new ArrayList<>(8);
 	
-	public KeypadInputDialog(final Frame owner, final String title, final AbstractKeypadInputListener listener) {
+	public KeypadInputDialog(final Frame owner, final String title, final KeypadInputListener listener) {
 		super(owner, title);
 		setSize(275 + 14, 198 + 7);
 		setMaximumSize(getSize());
@@ -92,7 +94,7 @@ public class KeypadInputDialog extends JDialog implements ActionListener {
 		
 		JPanel setupWindowKeypad = new JPanel();
 		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
-		Icon[] graphics = ClockFacePanel.getClockGraphics();
+		Icon[] graphics = ClockFaceGraphics.getClockGraphics();
 		for (int i = 0; i < numbers.length; i++) {
 			numbers[i] = new JButton();
 			numbers[i].setIcon(graphics[i]);
