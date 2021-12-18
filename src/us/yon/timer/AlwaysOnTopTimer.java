@@ -41,7 +41,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 	private JDialog prompt;
 	private Timer swingTimer;
 	private JPanel startingWindowPanel = new JPanel();
-	private ClockFace windowTimerPanel = new ClockFace(this);
+	private ClockFacePanel windowTimerPanel = new ClockFacePanel(this);
 	private JPanel buttonPanel = new JPanel();
 	private JPanel intervalTrackerPanel;
 	private JPanel intervalTrackerButtonPanel;
@@ -195,7 +195,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 		window.setTitle("Yon Timer");
 	}
 	
-	private void callSetupWindow(final ClockFaceTime clockface, Frame owner, boolean newInterval) {
+	private void callSetupWindow(final ClockFace clockface, Frame owner, boolean newInterval) {
 		int[] oldTime = clockface.getTime();
 		
 		final int oldSeconds = oldTime[0], oldDecaSeconds = oldTime[1],
@@ -259,7 +259,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 		new KeypadInputDialog(owner, "Set Countdown:", listener);
 	}
 	
-	private static void displayTimeOnClockFace(ClockFaceTime clockface, int...input) {
+	private static void displayTimeOnClockFace(ClockFace clockface, int...input) {
 		switch (input.length) {
 			case 0:
 				clockface.setTime(0, 0, 0, 0, 0, 0);

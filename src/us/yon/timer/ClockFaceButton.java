@@ -6,7 +6,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 
 
-public class ClockFaceButton extends JButton implements ClockFaceTime {
+public class ClockFaceButton extends JButton implements ClockFace {
 
 	/**
 	 * Declared for the sole purpose of preventing the JVM from calculating a value at startup.
@@ -41,7 +41,7 @@ public class ClockFaceButton extends JButton implements ClockFaceTime {
 		this.decaHours = decaHours;
 		
 		removeAll();
-		for (JLabel timeLabel: ClockFace.getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours)) {
+		for (JLabel timeLabel: ClockFacePanel.getLabelsForTime(seconds, decaSeconds, minutes, decaMinutes, hours, decaHours)) {
 			add(timeLabel);
 		}
 		repaint();

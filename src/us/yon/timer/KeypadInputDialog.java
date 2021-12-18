@@ -92,7 +92,7 @@ public class KeypadInputDialog extends JDialog implements ActionListener {
 		
 		JPanel setupWindowKeypad = new JPanel();
 		setupWindowKeypad.setLayout(new GridLayout(0, 3, 3, 3));
-		Icon[] graphics = ClockFace.getClockGraphics();
+		Icon[] graphics = ClockFacePanel.getClockGraphics();
 		for (int i = 0; i < numbers.length; i++) {
 			numbers[i] = new JButton();
 			numbers[i].setIcon(graphics[i]);
