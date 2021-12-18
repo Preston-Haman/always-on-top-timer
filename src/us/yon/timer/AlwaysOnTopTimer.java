@@ -237,19 +237,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 			public void cancelInput() {
 				clockface.setTime(oldSeconds, oldDecaSeconds, oldMinutes, oldDecaMinutes, oldHours, oldDecaHours);
 				if (newInterval) {
-					intervalTracker.setSize(intervalTracker.getWidth(), intervalTracker.getHeight() - 55);
-					intervalTrackingUIArray.remove(intervalTrackingUIArray.size() - 1);
-					if (intervalTrackingUIArray.size() == 0) {
-						intervalTrackerButtonPanel.remove(clearIntervals);
-						buttonPanel.remove(start);
-						window.repaint();
-						window.revalidate();
-					}
-					Point intervalTrackerPoint = intervalTracker.getLocation();
-					int x = (int) intervalTrackerPoint.getX();
-					int y = (int) intervalTrackerPoint.getY();
-					intervalTracker.setLocation(x, y + 55);
-					intervalTrackerColorIndicatorUpdate();
+					deleteIntervalArrayIndex(intervalTrackingUIArray.size() - 1);
 					intervalTracker.repaint();
 					intervalTracker.revalidate();
 				}
