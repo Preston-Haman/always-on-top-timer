@@ -2,6 +2,7 @@ package us.yon.timer;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
@@ -26,6 +27,17 @@ public class AlwaysOnTopTimer implements ActionListener {
 		INTERVAL;
 	}
 	
+	private enum ButtonBarState {
+		NONE,
+		STARTED,
+		PAUSED,
+		RESUMED,
+		RESET,
+		STOPWATCH,
+		COUNTDOWN,
+		COUNTED_DOWN;
+	}
+	
 	static Color defaultPanelColor = new JPanel().getBackground();
 	static Color flashColor = new Color(204, 204, 255);
 	static Color activeIntervalColor = new Color(217, 39, 66);
@@ -44,11 +56,6 @@ public class AlwaysOnTopTimer implements ActionListener {
 	
 	private JPanel startingWindowPanel = new JPanel();
 	private JPanel buttonPanel = new JPanel();
-	
-	private JPanel northBorder = new JPanel();
-	private JPanel southBorder = new JPanel();
-	private JPanel eastBorder = new JPanel();
-	private JPanel westBorder = new JPanel();
 	
 	private boolean flashing = false;
 	
@@ -83,10 +90,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 		startingWindowPanel.add(interval);
 		window.add(startingWindowPanel, BorderLayout.CENTER);
 		
-		window.add(northBorder, BorderLayout.NORTH);
-		window.add(southBorder, BorderLayout.SOUTH);
-		window.add(eastBorder, BorderLayout.EAST);
-		window.add(westBorder, BorderLayout.WEST);
+		window.add(new JPanel(), BorderLayout.NORTH);
+		window.add(new JPanel(), BorderLayout.SOUTH);
+		window.add(new JPanel(), BorderLayout.EAST);
+		window.add(new JPanel(), BorderLayout.WEST);
 		
 		window.setSize(242 + 14, 136 + 7); // Windows 10 takes the extra amounts and uses them as a shadow for the window
 		window.setMaximumSize(window.getSize());
@@ -96,19 +103,10 @@ public class AlwaysOnTopTimer implements ActionListener {
 		window.setVisible(true);
 	}
 	
-	private void returnToStartWindow() {
-		if (swingTimer.isRunning()) {
-			windowTimerPanel.stop();
-			swingTimer.stop();
-		}
-		window.remove(windowTimerPanel);
-		window.add(startingWindowPanel, BorderLayout.CENTER);
-		window.remove(buttonPanel);
-		window.add(southBorder, BorderLayout.SOUTH);
-		resetEntireSystem();
-	}
-	
 	private void addClockFaceAndButtons(TimerType type) {
+		Component northBorder = ((BorderLayout) window.getContentPane().getLayout()).getLayoutComponent(BorderLayout.NORTH);
+		Component southBorder = ((BorderLayout) window.getContentPane().getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+		
 		switch (type) {
 			case STOPWATCH:
 				windowTimerPanel.setCountdown(false);
@@ -121,10 +119,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 				window.add(windowTimerPanel.getTenthsIndicator(), BorderLayout.NORTH);
 				window.remove(southBorder);
 				window.add(buttonPanel, BorderLayout.SOUTH);
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(start);
+				changeButtonState(ButtonBarState.STOPWATCH);
 				break;
 			case COUNTDOWN:
 			case INTERVAL:
@@ -143,14 +138,60 @@ public class AlwaysOnTopTimer implements ActionListener {
 				window.add(windowTimerPanel.getTenthsIndicator(), BorderLayout.NORTH);
 				window.remove(southBorder);
 				window.add(buttonPanel, BorderLayout.SOUTH);
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(setup);
+				changeButtonState(ButtonBarState.COUNTDOWN);
 				break;
 			default:
 				throw new IllegalArgumentException("The paramater 'type' must be one of the type constants defined in the AlwaysOnTopTimer Class.");
 		}
 		currentType = type;
+	}
+	
+	private void changeButtonState(ButtonBarState newState) {
+		buttonPanel.removeAll();
+		switch (newState) {
+			case COUNTDOWN:
+				buttonPanel.add(back);
+				buttonPanel.add(setup);
+				return;
+			case COUNTED_DOWN:
+				buttonPanel.add(back);
+				buttonPanel.add(reset);
+				return;
+			case NONE:
+				//Nothing to do
+				return;
+			case PAUSED:
+				buttonPanel.add(currentType == TimerType.INTERVAL ? setup : back);
+				buttonPanel.add(reset);
+				buttonPanel.add(resume);
+				return;
+			case RESET:
+			case STOPWATCH:
+				buttonPanel.add(back);
+				buttonPanel.add(currentType == TimerType.STOPWATCH ? reset : setup);
+				buttonPanel.add(start);
+				return;
+			case RESUMED:
+			case STARTED:
+				buttonPanel.add(currentType == TimerType.INTERVAL ? setup : back);
+				buttonPanel.add(reset);
+				buttonPanel.add(pause);
+				return;
+			default:
+				throw new IllegalArgumentException("Unsupported ButtonBarState: " + newState);
+		}
+	}
+	
+	private void returnToStartWindow() {
+		if (swingTimer.isRunning()) {
+			windowTimerPanel.stop();
+			swingTimer.stop();
+		}
+		window.remove(windowTimerPanel);
+		window.add(startingWindowPanel, BorderLayout.CENTER);
+		window.remove(buttonPanel);
+		window.add(new JPanel(), BorderLayout.SOUTH);
+		resetEntireSystem();
 	}
 	
 	private void resetEntireSystem() {
@@ -164,7 +205,7 @@ public class AlwaysOnTopTimer implements ActionListener {
 		}
 		
 		window.remove(windowTimerPanel.getTenthsIndicator());
-		window.add(northBorder, BorderLayout.NORTH);
+		window.add(new JPanel(), BorderLayout.NORTH);
 		
 		if (flashing) {
 			flashing = false;
@@ -180,6 +221,8 @@ public class AlwaysOnTopTimer implements ActionListener {
 		intervalTracker = null;
 		
 		currentType = TimerType.NONE;
+		changeButtonState(ButtonBarState.NONE);
+		
 		windowTimerPanel.setTime(0, 0, 0, 0, 0, 0);
 		window.setTitle("Yon Timer");
 	}
@@ -258,6 +301,8 @@ public class AlwaysOnTopTimer implements ActionListener {
 	}
 	
 	private void borderAlertFlashing() {
+		Component westBorder = ((BorderLayout) window.getContentPane().getLayout()).getLayoutComponent(BorderLayout.WEST);
+		Component eastBorder = ((BorderLayout) window.getContentPane().getLayout()).getLayoutComponent(BorderLayout.EAST);
 		if (windowTimerPanel.getBackground() == defaultPanelColor && flashing) {
 			westBorder.setBackground(flashColor);
 			eastBorder.setBackground(flashColor);
@@ -294,146 +339,85 @@ public class AlwaysOnTopTimer implements ActionListener {
 			returnToStartWindow();
 		} else if (e.getSource() == setup) {
 			callSetupWindow();
-		} else if (currentType == TimerType.STOPWATCH) {
-			if (e.getSource() == start) {
-				windowTimerPanel.start();
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(pause);
-			} else if (e.getSource() == pause) {
-				windowTimerPanel.stop();
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(resume);
-			} else if (e.getSource() == resume) {
-				windowTimerPanel.start();
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(pause);
-			} else if (e.getSource() == reset) {
-				if (windowTimerPanel.isRunning()) {
-					windowTimerPanel.stop();
-				}
-				resetEntireSystem();
-				addClockFaceAndButtons(TimerType.STOPWATCH);
-			}
-		} else if (currentType == TimerType.COUNTDOWN) {
-			if (e.getSource() == windowTimerPanel || e.getSource() == swingTimer) {
-				if (e.getSource() == windowTimerPanel) {
-					swingTimer.start();
-				} else {
-					if (swingTimer.getDelay() == 100) {
-						swingTimer.stop();
-						swingTimer.setDelay(1000);
-						swingTimer.start();
-					} else {
-						swingTimer.stop();
-						swingTimer.setDelay(700);
-						swingTimer.start();
-					}
-					if (flashing == false) {
-						flashing = true;
-					}
-					buttonPanel.removeAll();
-					buttonPanel.add(back);
-					buttonPanel.add(reset);
-					borderAlertFlashing();
-				}
-			} else if (e.getSource() == start) {
-				windowTimerPanel.start();
+		} else if (e.getSource() == start) {
+			if (currentType != TimerType.STOPWATCH) {
 				if (swingTimer.getDelay() != 100) {
 					swingTimer.setDelay(100);
 				}
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(pause);
-			} else if (e.getSource() == reset) {
-				if (windowTimerPanel.isRunning()) {
-					windowTimerPanel.stop();
-				}
-				if (swingTimer.isRunning()) {
-					swingTimer.stop();
-				}
-				if (flashing) {
-					flashing = false;
-					borderAlertFlashing();
-				}
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(setup);
-				buttonPanel.add(start);
-				windowTimerPanel.displayTimeOnClockFace(countdownInput);
-			} else if (e.getSource() == pause) {
-				windowTimerPanel.stop();
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(resume);
-			} else if (e.getSource() == resume) {
-				windowTimerPanel.start();
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(pause);
 			}
-		} else if (currentType == TimerType.INTERVAL) {
-			if (e.getSource() == start) {
-				buttonPanel.remove(start);
-				buttonPanel.remove(back);
-				buttonPanel.add(reset);
-				buttonPanel.add(pause);
-				
+			
+			if (intervalTracker != null) {
+				assert currentType == TimerType.INTERVAL;
 				intervalTracker.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "start"));
-				windowTimerPanel.start();
-				if (swingTimer.getDelay() != 100) {
-					swingTimer.setDelay(100);
-				}
-			} else if (e.getSource() == pause) {
-				windowTimerPanel.stop();
+			}
+			
+			windowTimerPanel.start();
+			changeButtonState(ButtonBarState.STARTED);
+		} else if (e.getSource() == pause) {
+			windowTimerPanel.stop();
+			
+			if (intervalTracker != null) {
+				assert currentType == TimerType.INTERVAL;
 				intervalTracker.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "stop"));
-				
-				buttonPanel.remove(pause);
-				buttonPanel.add(resume);
-			} else if (e.getSource() == resume) {
-				windowTimerPanel.start();
-				buttonPanel.remove(resume);
-				buttonPanel.add(pause);
-			} else if (e.getSource() == reset) {
-				windowTimerPanel.stop();
-				windowTimerPanel.setTime(intervalTracker.resetActiveInterval());
-				intervalTracker.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "stop"));
-				
-				buttonPanel.removeAll();
-				buttonPanel.add(back);
-				buttonPanel.add(setup);
-				buttonPanel.add(start);
-			} else if (e.getSource() == windowTimerPanel || e.getSource() == swingTimer) {
-				if (e.getSource() == windowTimerPanel) {
+			}
+			
+			changeButtonState(ButtonBarState.PAUSED);
+		} else if (e.getSource() == resume) {
+			windowTimerPanel.start();
+			changeButtonState(ButtonBarState.RESUMED);
+		} else if (e.getSource() == reset) {
+			windowTimerPanel.stop();
+			
+			if (swingTimer.isRunning()) {
+				swingTimer.stop();
+			}
+			
+			if (flashing) {
+				flashing = false;
+				borderAlertFlashing();
+			}
+			
+			switch (currentType) {
+				case COUNTDOWN:
+					windowTimerPanel.displayTimeOnClockFace(countdownInput);
+					break;
+				case INTERVAL:
+					windowTimerPanel.setTime(intervalTracker.resetActiveInterval());
+					intervalTracker.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "stop"));
+					break;
+				case STOPWATCH:
+					windowTimerPanel.setTime(0, 0, 0, 0, 0, 0);
+					break;
+				default:
+					throw new IllegalStateException("Cannot reset timer due to illegal state; TimerType: " + currentType);
+			}
+			
+			changeButtonState(ButtonBarState.RESET);
+		} else if (e.getSource() == windowTimerPanel || e.getSource() == swingTimer) {
+			if (e.getSource() == windowTimerPanel) {
+				swingTimer.start();
+			} else {
+				if (swingTimer.getDelay() == 100) {
+					swingTimer.stop();
+					swingTimer.setDelay(1000);
 					swingTimer.start();
 				} else {
-					if (swingTimer.getDelay() == 100) {
-						swingTimer.stop();
-						swingTimer.setDelay(1000);
-						swingTimer.start();
-					} else {
-						swingTimer.stop();
-						swingTimer.setDelay(700);
-						swingTimer.start();
-					}
-					if (flashing == false) {
-						flashing = true;
-						windowTimerPanel.setTime(intervalTracker.advanceToNextInterval());
-					} else if (flashing) {
-						flashing = false;
-						swingTimer.stop();
-						swingTimer.setDelay(100);
-					}
-					borderAlertFlashing();
+					swingTimer.stop();
+					swingTimer.setDelay(700);
+					swingTimer.start();
 				}
+				
+				if (!flashing) {
+					flashing = true;
+					if (currentType == TimerType.INTERVAL) windowTimerPanel.setTime(intervalTracker.advanceToNextInterval());
+				} else if (currentType == TimerType.INTERVAL) {
+					flashing = false;
+					swingTimer.stop();
+					swingTimer.setDelay(100);
+				}
+				
+				if (currentType == TimerType.COUNTDOWN) changeButtonState(ButtonBarState.COUNTED_DOWN);
+				borderAlertFlashing();
 			}
 		}
 		window.repaint();
