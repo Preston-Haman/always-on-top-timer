@@ -393,32 +393,30 @@ public class AlwaysOnTopTimer implements ActionListener {
 			}
 			
 			changeButtonState(ButtonBarState.RESET);
-		} else if (e.getSource() == windowTimerPanel || e.getSource() == swingTimer) {
-			if (e.getSource() == windowTimerPanel) {
+		} else if (e.getSource() == windowTimerPanel) {
+			if (currentType == TimerType.INTERVAL) windowTimerPanel.setTime(intervalTracker.advanceToNextInterval());
+			swingTimer.start();
+		} else if (e.getSource() == swingTimer) {
+			if (swingTimer.getDelay() == 100) {
+				swingTimer.stop();
+				swingTimer.setDelay(1000);
 				swingTimer.start();
 			} else {
-				if (swingTimer.getDelay() == 100) {
-					swingTimer.stop();
-					swingTimer.setDelay(1000);
-					swingTimer.start();
-				} else {
-					swingTimer.stop();
-					swingTimer.setDelay(700);
-					swingTimer.start();
-				}
-				
-				if (!flashing) {
-					flashing = true;
-					if (currentType == TimerType.INTERVAL) windowTimerPanel.setTime(intervalTracker.advanceToNextInterval());
-				} else if (currentType == TimerType.INTERVAL) {
-					flashing = false;
-					swingTimer.stop();
-					swingTimer.setDelay(100);
-				}
-				
-				if (currentType == TimerType.COUNTDOWN) changeButtonState(ButtonBarState.COUNTED_DOWN);
-				borderAlertFlashing();
+				swingTimer.stop();
+				swingTimer.setDelay(700);
+				swingTimer.start();
 			}
+			
+			if (!flashing) {
+				flashing = true;
+			} else if (currentType == TimerType.INTERVAL) {
+				flashing = false;
+				swingTimer.stop();
+				swingTimer.setDelay(100);
+			}
+			
+			if (currentType == TimerType.COUNTDOWN) changeButtonState(ButtonBarState.COUNTED_DOWN);
+			borderAlertFlashing();
 		}
 		window.repaint();
 		window.revalidate();
