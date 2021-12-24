@@ -157,27 +157,14 @@ public class ClockFacePanel extends JPanel implements ClockFace {
 	
 	@Override
 	public void setTime(int seconds, int decaSeconds, int minutes, int decaMinutes, int hours, int decaHours) {
-		if (ticking) {
-			stop();
-			tenthSeconds = 0;
-			this.seconds = seconds;
-			this.decaSeconds = decaSeconds;
-			this.minutes = minutes;
-			this.decaMinutes = decaMinutes;
-			this.hours = hours;
-			this.decaHours = decaHours;
-			updateClockFace();
-			start();
-		} else {
-			tenthSeconds = 0;
-			this.seconds = seconds;
-			this.decaSeconds = decaSeconds;
-			this.minutes = minutes;
-			this.decaMinutes = decaMinutes;
-			this.hours = hours;
-			this.decaHours = decaHours;
-			updateClockFace();
-		}
+		tenthSeconds = 0;
+		this.seconds = seconds;
+		this.decaSeconds = decaSeconds;
+		this.minutes = minutes;
+		this.decaMinutes = decaMinutes;
+		this.hours = hours;
+		this.decaHours = decaHours;
+		updateClockFace();
 	}
 	
 	void start() {
